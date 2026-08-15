@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kettle & Co — Analytics</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+:root{
+  --bg: #1c1620;
+  --bg-alt: #241b28;
+  --surface: #2a2030;
+  --surface-2: #322639;
+  --line: rgba(242,233,222,0.09);
+  --ink: #f2e9de;
+  --ink-dim: #b7a9ae;
+  --ink-faint: #85757c;
+
+  --gold: #d4a24c;
+  --rose: #c97064;
+  --sage: #8fa98a;
+  --brown: #a8674f;
+  --lav: #b9afc9;
+
+  --font-display: 'Fraunces', serif;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+}
+
+*{box-sizing:border-box; margin:0; padding:0;}
+
+body{
+  background:
+    radial-gradient(1100px 500px at 8% -10%, rgba(212,162,76,0.10), transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, rgba(201,112,100,0.08), transparent 55%),
+    var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  min-height: 100vh;
+  padding: clamp(16px, 4vw, 48px);
+}
+
+.wrap{ max-width: 1180px; margin: 0 auto; }
+
+/* ---------- Header ---------- */
+header{
+  display:flex; align-items:flex-end; justify-content:space-between;
+  gap:20px; flex-wrap:wrap; margin-bottom: 28px;
+  padding-bottom: 22px; border-bottom: 1px solid var(--line);
+}
+.brand{ display:flex; align-items:center; gap:14px; }
+.mark{ width:38px; height:38px; flex-shrink:0; }
+.mark svg{ width:100%; height:100%; }
+.steam{ transform-origin: bottom center; animation: rise 3.2s ease-in-out infinite; }
+.steam.d2{ animation-delay: .6s; }
+.steam.d3{ animation-delay: 1.2s; }
+@keyframes rise{
+  0%{ opacity:0; transform: translateY(2px) scaleY(0.8); }
+  35%{ opacity:.55; }
+  100%{ opacity:0; transform: translateY(-9px) scaleY(1.15); }
+}
+.brand h1{
+  font-family: var(--font-display); font-weight:600; font-size: 1.5rem;
+  letter-spacing: 0.01em;
+}
+.brand p{ color: var(--ink-dim); font-size: 0.82rem; margin-top:2px; }
+
+.date-range{ display:flex; gap:4px; background: var(--surface); border:1px solid var(--line); border-radius:10px; padding:4px; }
+.date-range button{
+  font-family: var(--font-mono); font-size: 0.72rem; letter-spacing:0.02em;
+  color: var(--ink-dim); background:transparent; border:none; border-radius:7px;
+  padding: 7px 12px; cursor:pointer; transition: all .15s ease;
+}
+.date-range button:hover{ color: var(--ink); }
+.date-range button.active{ background: var(--gold); color:#241a0d; font-weight:600; }
+
+/* ---------- Category filter ---------- */
+.filters-row{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom: 26px; }
+.filters-row .label{ font-family: var(--font-mono); font-size:0.7rem; color: var(--ink-faint); text-transform:uppercase; letter-spacing:0.08em; }
+.chips{ display:flex; gap:8px; flex-wrap:wrap; }
+.chip{
+  display:flex; align-items:center; gap:7px;
+  font-size:0.8rem; font-weight:500; color: var(--ink-dim);
+  background: var(--surface); border:1px solid var(--line); border-radius:99px;
+  padding:6px 13px 6px 10px; cursor:pointer; transition: all .15s ease; user-select:none;
+}
+.chip .dot{ width:8px; height:8px; border-radius:50%; }
+.chip.active{ color: var(--ink); border-color: transparent; background: var(--surface-2); box-shadow: inset 0 0 0 1px rgba(242,233,222,0.16); }
+.chip:hover{ transform: translateY(-1px); }
+
+/* ---------- Stat cards ---------- */
+.stats{
+  display:grid; grid-template-columns: repeat(4, 1fr); gap:14px; margin-bottom: 22px;
+}
+.stat-card{
+  background: var(--surface); border:1px solid var(--line); border-radius:14px;
+  padding:18px 20px; position:relative; overflow:hidden;
+}
+.stat-card::after{
+  content:''; position:absolute; inset:auto -20px -20px auto; width:90px; height:90px;
+  background: radial-gradient(circle, var(--accent, var(--gold)) 0%, transparent 70%);
+  opacity:0.16; border-radius:50%;
+}
+.stat-card .k{ font-family: var(--font-mono); font-size:0.68rem; letter-spacing:0.07em; text-transform:uppercase; color: var(--ink-faint); }
+.stat-card .v{ font-family: var(--font-display); font-size: 1.7rem; margin-top:8px; font-weight:600; }
+.stat-card .delta{ font-family: var(--font-mono); font-size:0.72rem; margin-top:6px; display:flex; align-items:center; gap:4px; }
+.delta.up{ color: var(--sage); }
+.delta.down{ color: var(--rose); }
+
+/* ---------- Charts grid ---------- */
+.charts-grid{
+  display:grid; grid-template-columns: 1.6fr 1fr; gap:16px; margin-bottom:16px;
+}
+.charts-grid.secondary{ grid-template-columns: 1fr 1.6fr; }
+
+.panel{
+  background: var(--surface); border:1px solid var(--line); border-radius:16px;
+  padding:20px 22px 16px;
+}
+.panel-head{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:14px; flex-wrap:wrap; gap:6px; }
+.panel-head h2{ font-family: var(--font-display); font-size:1.05rem; font-weight:600; }
+.panel-head .sub{ font-family: var(--font-mono); font-size:0.68rem; color: var(--ink-faint); }
+.chart-box{ position:relative; height: 260px; }
+.chart-box.tall{ height: 300px; }
+
+.donut-wrap{ position:relative; }
+.donut-center{
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  text-align:center; pointer-events:none;
+}
+.donut-center .n{ font-family: var(--font-display); font-size:1.35rem; font-weight:600; }
+.donut-center .l{ font-family: var(--font-mono); font-size:0.62rem; color: var(--ink-faint); text-transform:uppercase; letter-spacing:0.06em; margin-top:2px; }
+
+.loading-note{ font-family: var(--font-mono); font-size:0.72rem; color: var(--ink-faint); text-align:center; padding: 40px 0; }
+
+footer{ text-align:center; color: var(--ink-faint); font-family: var(--font-mono); font-size:0.68rem; margin-top:26px; }
+
+@media (max-width: 900px){
+  .stats{ grid-template-columns: repeat(2,1fr); }
+  .charts-grid, .charts-grid.secondary{ grid-template-columns: 1fr; }
+  header{ align-items:flex-start; }
+}
+@media (max-width: 480px){
+  .stats{ grid-template-columns: 1fr 1fr; }
+  .stat-card .v{ font-size:1.4rem; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <div class="mark">
+        <svg viewBox="0 0 40 40" fill="none">
+          <path class="steam" d="M14 6 Q11 10 14 13 Q17 16 14 19" stroke="#d4a24c" stroke-width="1.6" stroke-linecap="round" opacity="0.6"/>
+          <path class="steam d2" d="M20 4 Q17 8 20 11 Q23 14 20 17" stroke="#d4a24c" stroke-width="1.6" stroke-linecap="round" opacity="0.6"/>
+          <path class="steam d3" d="M26 6 Q23 10 26 13 Q29 16 26 19" stroke="#d4a24c" stroke-width="1.6" stroke-linecap="round" opacity="0.6"/>
+          <path d="M6 20 H30 V26 Q30 34 18 34 Q6 34 6 26 Z" fill="#322639" stroke="#c97064" stroke-width="1.3"/>
+          <path d="M30 22 Q36 22 36 27 Q36 31 30 30" stroke="#c97064" stroke-width="1.3" fill="none"/>
+        </svg>
+      </div>
+      <div>
+        <h1>Kettle &amp; Co</h1>
+        <p>Sales analytics dashboard</p>
+      </div>
+    </div>
+    <div class="date-range" id="dateRange"></div>
+  </header>
+
+  <div class="filters-row">
+    <span class="label">Steep by category</span>
+    <div class="chips" id="categoryChips"></div>
+  </div>
+
+  <div class="stats" id="statCards">
+    <div class="loading-note">Brewing your numbers…</div>
+  </div>
+
+  <div class="charts-grid">
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Revenue trend</h2>
+        <span class="sub" id="trendSub">—</span>
+      </div>
+      <div class="chart-box tall"><canvas id="lineChart"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Revenue by category</h2>
+        <span class="sub">share of total</span>
+      </div>
+      <div class="chart-box tall donut-wrap">
+        <canvas id="donutChart"></canvas>
+        <div class="donut-center">
+          <div class="n" id="donutCenterVal">$0</div>
+          <div class="l">total steeped</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="charts-grid secondary">
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Orders by weekday</h2>
+        <span class="sub">count</span>
+      </div>
+      <div class="chart-box"><canvas id="weekdayChart"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Top categories</h2>
+        <span class="sub">orders vs. avg value</span>
+      </div>
+      <div class="chart-box"><canvas id="barChart"></canvas></div>
+    </div>
+  </div>
+
+  <footer>Data refreshed from mock order-service API · Kettle &amp; Co internal analytics</footer>
+</div>
+
+<script>
+/* =========================================================
+   BACKEND CONNECTION
+   All order data and aggregation now live behind a real API
+   (see /backend/server.js — an Express service). This file
+   only fetches already-aggregated JSON and renders it; no
+   data is generated or summed on the client anymore.
+   ========================================================= */
+
+const API_BASE = 'http://localhost:3001';
+
+const fmtMoney = n => '$' + Math.round(n).toLocaleString('en-US');
+const WEEKDAY_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+const RANGES = [
+  { label:'7D',  days:7 },
+  { label:'30D', days:30 },
+  { label:'90D', days:90 },
+  { label:'1Y',  days:365 },
+];
+
+const state = {
+  rangeDays: 30,
+  categories: [],           // fetched from /api/categories
+  activeCategories: new Set(),
+};
+
+/* =========================================================
+   CHART.JS SETUP (unchanged — still just chart shells,
+   populated with whatever the API returns)
+   ========================================================= */
+Chart.defaults.font.family = "'Inter', sans-serif";
+Chart.defaults.color = '#b7a9ae';
+
+let lineChart, donutChart, weekdayChart, barChart;
+
+function baseGrid(){
+  return { color:'rgba(242,233,222,0.06)', drawTicks:false };
+}
+
+function initCharts(){
+  const lineCtx = document.getElementById('lineChart');
+  lineChart = new Chart(lineCtx, {
+    type:'line',
+    data:{ labels:[], datasets:[{
+      data:[], borderColor:'#d4a24c', borderWidth:2.4, tension:0.35,
+      pointRadius:0, pointHoverRadius:4, pointBackgroundColor:'#d4a24c',
+      fill:true,
+      backgroundColor:(ctx)=>{
+        const g = ctx.chart.ctx.createLinearGradient(0,0,0,260);
+        g.addColorStop(0,'rgba(212,162,76,0.28)');
+        g.addColorStop(1,'rgba(212,162,76,0)');
+        return g;
+      },
+    }]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{
+        backgroundColor:'#2a2030', borderColor:'rgba(242,233,222,0.15)', borderWidth:1,
+        titleFont:{family:"'IBM Plex Mono', monospace", size:11},
+        bodyFont:{family:"'IBM Plex Mono', monospace", size:12},
+        callbacks:{ label:(c)=> ' ' + fmtMoney(c.parsed.y) }
+      }},
+      scales:{
+        x:{ grid:{display:false}, ticks:{font:{size:10}} },
+        y:{ grid: baseGrid(), ticks:{ font:{size:10}, callback:(v)=>fmtMoney(v) } }
+      }
+    }
+  });
+
+  const donutCtx = document.getElementById('donutChart');
+  donutChart = new Chart(donutCtx, {
+    type:'doughnut',
+    data:{ labels:[], datasets:[{
+      data:[],
+      backgroundColor:[],
+      borderColor:'#2a2030', borderWidth:3, hoverOffset:6,
+    }]},
+    options:{
+      responsive:true, maintainAspectRatio:false, cutout:'72%',
+      plugins:{ legend:{
+        position:'bottom', labels:{ boxWidth:8, boxHeight:8, usePointStyle:true, pointStyle:'circle', font:{size:11}, padding:12 }
+      }, tooltip:{
+        backgroundColor:'#2a2030', borderColor:'rgba(242,233,222,0.15)', borderWidth:1,
+        callbacks:{ label:(c)=> ' ' + c.label + ': ' + fmtMoney(c.parsed) }
+      }}
+    }
+  });
+
+  const weekdayCtx = document.getElementById('weekdayChart');
+  weekdayChart = new Chart(weekdayCtx, {
+    type:'bar',
+    data:{ labels: WEEKDAY_LABELS, datasets:[{
+      data:[0,0,0,0,0,0,0], backgroundColor:'#8fa98a', borderRadius:6, maxBarThickness:34,
+    }]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{
+        backgroundColor:'#2a2030', borderColor:'rgba(242,233,222,0.15)', borderWidth:1,
+      }},
+      scales:{
+        x:{ grid:{display:false}, ticks:{font:{size:10}} },
+        y:{ grid: baseGrid(), ticks:{font:{size:10}, precision:0} }
+      }
+    }
+  });
+
+  const barCtx = document.getElementById('barChart');
+  barChart = new Chart(barCtx, {
+    type:'bar',
+    data:{ labels:[], datasets:[{
+      label:'Orders', data:[],
+      backgroundColor:[], borderRadius:6, maxBarThickness:30,
+    }]},
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{
+        backgroundColor:'#2a2030', borderColor:'rgba(242,233,222,0.15)', borderWidth:1,
+        callbacks:{ label:(c)=> ' ' + c.parsed.x + ' orders' }
+      }},
+      scales:{
+        x:{ grid: baseGrid(), ticks:{font:{size:10}, precision:0} },
+        y:{ grid:{display:false}, ticks:{font:{size:11}} }
+      }
+    }
+  });
+}
+
+/* =========================================================
+   API CALLS
+   ========================================================= */
+async function fetchCategories(){
+  const res = await fetch(`${API_BASE}/api/categories`);
+  if(!res.ok) throw new Error('Failed to load categories');
+  return res.json();
+}
+
+async function fetchDashboard(days, categoryKeys){
+  const params = new URLSearchParams({
+    days: String(days),
+    categories: categoryKeys.join(','),
+  });
+  const res = await fetch(`${API_BASE}/api/dashboard?${params.toString()}`);
+  if(!res.ok) throw new Error('Failed to load dashboard data');
+  return res.json();
+}
+
+/* =========================================================
+   RENDER — purely a function of whatever JSON the API returned
+   ========================================================= */
+function renderStatCards(data){
+  const el = document.getElementById('statCards');
+  const { stats } = data;
+  const rangeLabel = RANGES.find(r=>r.days===state.rangeDays).label;
+  const perDay = stats.totalOrders ? (stats.totalOrders/Math.max(1,state.rangeDays)).toFixed(1) : '0';
+  el.innerHTML = `
+    <div class="stat-card" style="--accent:#d4a24c">
+      <div class="k">Total revenue</div>
+      <div class="v">${fmtMoney(stats.totalRevenue)}</div>
+      <div class="delta up">↑ last ${rangeLabel.toLowerCase()}</div>
+    </div>
+    <div class="stat-card" style="--accent:#c97064">
+      <div class="k">Total orders</div>
+      <div class="v">${stats.totalOrders.toLocaleString()}</div>
+      <div class="delta up">${perDay}/day avg</div>
+    </div>
+    <div class="stat-card" style="--accent:#8fa98a">
+      <div class="k">Avg order value</div>
+      <div class="v">${fmtMoney(stats.avgOrder)}</div>
+      <div class="delta up">per order</div>
+    </div>
+    <div class="stat-card" style="--accent:#b9afc9">
+      <div class="k">Top category</div>
+      <div class="v" style="font-size:1.3rem">${stats.topCategory ? stats.topCategory.label : '—'}</div>
+      <div class="delta up">by revenue</div>
+    </div>
+  `;
+}
+
+function renderCharts(data){
+  lineChart.data.labels = data.trend.labels;
+  lineChart.data.datasets[0].data = data.trend.values;
+  lineChart.update();
+  document.getElementById('trendSub').textContent = state.rangeDays + ' days';
+
+  donutChart.data.labels = data.byCategory.map(c=>c.label);
+  donutChart.data.datasets[0].data = data.byCategory.map(c=>c.revenue);
+  donutChart.data.datasets[0].backgroundColor = data.byCategory.map(c=>c.color);
+  donutChart.update();
+  const total = data.byCategory.reduce((s,c)=>s+c.revenue,0);
+  document.getElementById('donutCenterVal').textContent = fmtMoney(total);
+
+  weekdayChart.data.datasets[0].data = data.byWeekday;
+  weekdayChart.update();
+
+  barChart.data.labels = data.categoryBar.map(c=>c.label);
+  barChart.data.datasets[0].data = data.categoryBar.map(c=>c.orders);
+  barChart.data.datasets[0].backgroundColor = data.categoryBar.map(c=>c.color);
+  barChart.update();
+}
+
+function showLoading(isLoading){
+  document.querySelectorAll('.panel').forEach(p => p.style.opacity = isLoading ? '0.55' : '1');
+}
+
+async function loadData(){
+  showLoading(true);
+  try {
+    const activeKeys = state.categories
+      .map(c => c.key)
+      .filter(k => state.activeCategories.has(k));
+    const data = await fetchDashboard(state.rangeDays, activeKeys);
+    renderStatCards(data);
+    renderCharts(data);
+  } catch (err) {
+    document.getElementById('statCards').innerHTML =
+      `<div class="loading-note">Couldn't reach the API at ${API_BASE} — make sure the backend server is running (see /backend/README.md).</div>`;
+    console.error(err);
+  } finally {
+    showLoading(false);
+  }
+}
+
+/* =========================================================
+   FILTER CONTROLS
+   ========================================================= */
+function buildDateRange(){
+  const el = document.getElementById('dateRange');
+  el.innerHTML = RANGES.map(r =>
+    `<button data-days="${r.days}" class="${r.days===state.rangeDays?'active':''}">${r.label}</button>`
+  ).join('');
+  el.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      state.rangeDays = Number(btn.dataset.days);
+      el.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      await loadData();
+    });
+  });
+}
+
+function buildCategoryChips(){
+  const el = document.getElementById('categoryChips');
+  el.innerHTML = state.categories.map(c =>
+    `<div class="chip active" data-key="${c.key}">
+       <span class="dot" style="background:${c.color}"></span>${c.label}
+     </div>`
+  ).join('');
+  el.querySelectorAll('.chip').forEach(chip => {
+    chip.addEventListener('click', async () => {
+      const key = chip.dataset.key;
+      if(state.activeCategories.has(key)){
+        if(state.activeCategories.size === 1) return; // keep at least one selected
+        state.activeCategories.delete(key);
+        chip.classList.remove('active');
+      } else {
+        state.activeCategories.add(key);
+        chip.classList.add('active');
+      }
+      await loadData();
+    });
+  });
+}
+
+/* =========================================================
+   INIT
+   ========================================================= */
+async function init(){
+  initCharts();
+  buildDateRange();
+  try {
+    state.categories = await fetchCategories();
+  } catch (err) {
+    document.getElementById('statCards').innerHTML =
+      `<div class="loading-note">Couldn't reach the API at ${API_BASE} — make sure the backend server is running (see /backend/README.md).</div>`;
+    console.error(err);
+    return;
+  }
+  state.activeCategories = new Set(state.categories.map(c => c.key));
+  buildCategoryChips();
+  await loadData();
+}
+
+init();
+</script>
+</body>
+</html>
